@@ -1,0 +1,138 @@
+/* Design tokens — solid only, gradient-free. See CLAUDE.md §8. */
+
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Geist Regular"), local("Geist-Regular");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local("Geist Medium"), local("Geist-Medium");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local("Geist SemiBold"), local("Geist-SemiBold");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Geist Mono Regular"), local("GeistMono-Regular");
+}
+
+:root {
+  /* Surfaces */
+  --bg-base:      #0E0F11;
+  --bg-surface:   #16181B;
+  --bg-raised:    #1D2024;
+  --bg-hover:     #24272C;
+
+  /* Hairlines */
+  --border:       #2A2D33;
+  --border-strong:#3A3E45;
+
+  /* Text */
+  --text:         #ECEDEE;
+  --text-muted:   #9BA1A6;
+  --text-faint:   #6B7177;
+
+  /* Accent (single, solid) */
+  --accent:       #E8533F;
+  --accent-press: #C9442F;
+  --accent-fg:    #FFFFFF;
+
+  /* Feedback */
+  --ok:           #3FB07A;
+  --warn:         #D8A23B;
+  --danger:       #D8493B;
+
+  /* Selection */
+  --select-fill:  rgba(232, 83, 63, 0.22);
+  --select-line:  #E8533F;
+
+  /* Checkerboard signature */
+  --checker-a:    #1B1D20;
+  --checker-b:    #232629;
+
+  /* Shadow (single token) */
+  --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.28);
+
+  /* Radii */
+  --r-sm: 6px; --r-md: 10px; --r-lg: 14px;
+
+  /* Spacing */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
+
+  /* Motion */
+  --dur: 140ms;
+  --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+
+  /* Type scale */
+  --fs-12: 12px; --fs-13: 13px; --fs-14: 14px;
+  --fs-16: 16px; --fs-20: 20px; --fs-28: 28px;
+
+  --font-ui: "Geist", -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "JetBrains Mono", Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--fs-14);
+  color: var(--text);
+  background: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+::selection {
+  background: var(--select-fill);
+  color: var(--text);
+}
+
+.mono { font-family: var(--font-mono); }
+.muted { color: var(--text-muted); }
+.faint { color: var(--text-faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
