@@ -47,6 +47,17 @@
     if (cutoutImg && ui.mode !== "smart") {
       // Server-built cutout: foreground decontaminated by Rust, alpha already
       // in the PNG. Just draw it — no compositing here, no CORS risk.
+
+      // Preview the chosen background under the cutout so the canvas reflects
+      // what export will actually produce. Transparent bg → checkerboard stays,
+      // solid color → fill rect, blur/image → keep checkerboard preview (those
+      // need source pixels and would either taint the canvas or require a
+      // round-trip to Rust; we save those for the export pipeline itself).
+      if (ui.background.kind === "color") {
+        ctx.fillStyle = ui.background.hex;
+        ctx.fillRect(placement.x, placement.y, placement.drawW, placement.drawH);
+      }
+
       if (cutoutFade < 1) {
         // The delightful moment — source underneath, cutout fading in on top.
         drawImage(ctx, img, placement);
@@ -75,6 +86,7 @@
     void doc.mask;
     void doc.cutout;
     void ui.zoom; void ui.panX; void ui.panY;
+    void ui.background;
     paint();
   });
 
