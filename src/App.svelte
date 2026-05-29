@@ -6,8 +6,18 @@
   import ShortcutsOverlay from "./lib/components/ShortcutsOverlay.svelte";
   import { doc } from "./lib/stores/document.svelte";
   import { ui } from "./lib/stores/ui.svelte";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
 
   let shortcutsOpen = $state(false);
+
+  // Keep the OS window title in sync with the active file. Useful when several
+  // copies of the app are open or when alt-tabbing — the title bar tells you
+  // which image you'll act on.
+  $effect(() => {
+    const name = doc.fileName;
+    const title = name ? `${name} — Background Remover` : "Background Remover";
+    getCurrentWindow().setTitle(title).catch(() => { /* fine outside Tauri */ });
+  });
 
   function onKeydown(e: KeyboardEvent) {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;

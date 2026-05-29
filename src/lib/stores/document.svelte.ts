@@ -13,6 +13,9 @@ class DocumentStore {
   width = $state(0);
   height = $state(0);
 
+  /** File name (no path) of the loaded image. Used to title the window. */
+  fileName = $state<string | null>(null);
+
   /** URL for the loaded source image (Tauri asset:// URL or blob:). */
   sourceUrl = $state<string | null>(null);
 
@@ -33,11 +36,12 @@ class DocumentStore {
   get canRedo() { return this.redoStack.length > 0; }
   get hasImage() { return this.imageId !== null; }
 
-  setImage(id: ImageId, width: number, height: number, sourceUrl: string) {
+  setImage(id: ImageId, width: number, height: number, sourceUrl: string, fileName: string | null = null) {
     this.imageId = id;
     this.width = width;
     this.height = height;
     this.sourceUrl = sourceUrl;
+    this.fileName = fileName;
     this.mask = null;
     this.cutout = null;
     this.history = [];
@@ -86,6 +90,7 @@ class DocumentStore {
     this.width = 0;
     this.height = 0;
     this.sourceUrl = null;
+    this.fileName = null;
     this.mask = null;
     this.cutout = null;
     this.history = [];

@@ -139,17 +139,23 @@
 
   async function loadFromPath(path: string) {
     ui.setError(null);
-    ui.setBusy("Encoding image...");
+    ui.setBusy("Loading image...");
     try {
       const meta = await ipc.loadImage(path);
       const fileUrl = convertFileSrc(path);
-      doc.setImage(meta.image_id, meta.width, meta.height, fileUrl);
+      const fileName = basename(path);
+      doc.setImage(meta.image_id, meta.width, meta.height, fileUrl, fileName);
       ui.zoom = 1; ui.panX = 0; ui.panY = 0;
     } catch (e) {
       ui.setError(String(e));
     } finally {
       ui.clearBusy();
     }
+  }
+
+  function basename(p: string): string {
+    const m = p.replace(/\\/g, "/").match(/([^/]+)$/);
+    return m ? m[1] : p;
   }
 
   async function pickFile() {
