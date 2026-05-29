@@ -7,6 +7,7 @@
   import { doc } from "./lib/stores/document.svelte";
   import { ui } from "./lib/stores/ui.svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { copyCutoutToClipboard } from "./lib/actions/clipboard";
 
   let shortcutsOpen = $state(false);
 
@@ -28,6 +29,7 @@
 
     if (mod && e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); doc.undo(); }
     else if (mod && (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))) { e.preventDefault(); doc.redo(); }
+    else if (mod && e.key.toLowerCase() === "c" && doc.cutout) { e.preventDefault(); copyCutoutToClipboard(); }
     else if (!mod && e.key.toLowerCase() === "a") ui.setMode("auto");
     else if (!mod && e.key.toLowerCase() === "s") ui.setMode("smart");
     else if (!mod && e.key.toLowerCase() === "m") ui.setMode("manual");

@@ -3,11 +3,13 @@
   import { doc } from "../stores/document.svelte";
   import { ui } from "../stores/ui.svelte";
   import { ipc, type Background, type ExportFormat } from "../ipc";
+  import { copyCutoutToClipboard } from "../actions/clipboard";
 
   let format = $state<ExportFormat>("png");
   let colorHex = $state("#ffffff");
   let blurRadius = $state(20);
   let bgImagePath = $state<string | null>(null);
+  let copied = $state(false);
 
   // Push local control changes into the store *only when the kind is already that kind*
   // and the actual value differs — avoids an infinite reactive loop (each assignment
@@ -55,6 +57,14 @@
     if (typeof selected === "string") {
       bgImagePath = selected;
       ui.background = { kind: "image", path: selected };
+    }
+  }
+
+  async function copyCutout() {
+    const ok = await copyCutoutToClipboard();
+    if (ok) {
+      copied = true;
+      setTimeout(() => { copied = false; }, 1200);
     }
   }
 
@@ -175,6 +185,9 @@
           <option value="webp">WebP</option>
         </select>
       </label>
+      <button type="button" class="btn ghost" disabled={!doc.cutout || ui.busy} onclick={copyCutout} title="Copy cutout to clipboard (Ctrl+C)">
+        {copied ? "Copied" : "Copy"}
+      </button>
       <button type="button" class="btn primary" disabled={!doc.mask || ui.busy} onclick={doExport}>
         Save...
       </button>
