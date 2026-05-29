@@ -16,6 +16,12 @@
   }
 </script>
 
+{#if ui.busy}
+  <div class="progress" aria-hidden="true">
+    <div class="progress-fill"></div>
+  </div>
+{/if}
+
 <footer class="bar" role="status">
   <button
     type="button"
@@ -56,6 +62,25 @@
 </footer>
 
 <style>
+  .progress {
+    position: fixed;
+    bottom: 28px; /* sit on top of the status bar */
+    left: 0; right: 0;
+    height: 2px;
+    background: transparent;
+    overflow: hidden;
+    z-index: 30;
+  }
+  .progress-fill {
+    width: 35%;
+    height: 100%;
+    background: var(--accent);
+    animation: slide 1.4s var(--ease) infinite;
+  }
+  @keyframes slide {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(285%); }
+  }
   .bar {
     height: 28px;
     background: var(--bg-surface);
