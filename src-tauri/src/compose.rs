@@ -255,3 +255,69 @@ fn parse_hex(hex: &str) -> AppResult<[u8; 3]> {
     let b = u8::from_str_radix(&s[4..6], 16).map_err(|e| AppError::Msg(e.to_string()))?;
     Ok([r, g, b])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{GrayImage, Luma, Rgba, RgbaImage};
+
+    #[test]
+    fn parse_hex_accepts_uppercase_lowercase_and_optional_hash() {
+        assert_eq!(parse_hex("#ffffff").unwrap(), [255, 255, 255]);
+        assert_eq!(parse_hex("FFFFFF").unwrap(), [255, 255, 255]);
+        assert_eq!(parse_hex("  #ff8800  ").unwrap(), [255, 136, 0]);
+    }
+
+    #[test]
+    fn parse_hex_rejects_bad_length() {
+        assert!(parse_hex("#abc").is_err());
+        assert!(parse_hex("ffffff00").is_err());
+    }
+
+    #[test]
+    fn parse_hex_rejects_non_hex_chars() {
+        assert!(parse_hex("#zzzzzz").is_err());
+    }
+
+    /// build_cutout copies source RGB into the cutout for fully-opaque mask
+    /// pixels and zeroes alpha for fully-transparent ones.
+    #[test]
+    fn build_cutout_maps_mask_luminance_to_alpha() {
+        let mut source = RgbaImage::new(2, 1);
+        source.put_pixel(0, 0, Rgba([200, 100, 50, 255]));
+        source.put_pixel(1, 0, Rgba([10, 20, 30, 255]));
+
+        let mut mask = GrayImage::new(2, 1);
+        mask.put_pixel(0, 0, Luma([255])); // fully foreground
+        mask.put_pixel(1, 0, Luma([0]));   // fully background
+
+        let out = build_cutout(&source, &mask).unwrap();
+        let fg = out.get_pixel(0, 0);
+        let bg = out.get_pixel(1, 0);
+
+        assert_eq!(fg[3], 255, "fully-opaque mask should keep full alpha");
+        // RGB is preserved for solid pixels; decontamination doesn't touch them.
+        assert_eq!([fg[0], fg[1], fg[2]], [200, 100, 50]);
+        assert_eq!(bg[3], 0, "fully-transparent mask should zero alpha");
+    }
+
+    /// Decontamination doesn't touch the alpha channel — only RGB inside the
+    /// soft band. This is the invariant that keeps hair softness intact.
+    #[test]
+    fn decontamination_preserves_alpha() {
+        let mut img = RgbaImage::new(8, 8);
+        // 3×3 opaque foreground square in the middle, soft alpha around it.
+        for y in 0..8 {
+            for x in 0..8 {
+                let in_solid = (3..=5).contains(&x) && (3..=5).contains(&y);
+                let in_band = !in_solid && (2..=6).contains(&x) && (2..=6).contains(&y);
+                let alpha = if in_solid { 255 } else if in_band { 80 } else { 0 };
+                img.put_pixel(x, y, Rgba([10, 10, 200, alpha]));
+            }
+        }
+        let before: Vec<u8> = img.pixels().map(|p| p[3]).collect();
+        decontaminate_foreground(&mut img);
+        let after: Vec<u8> = img.pixels().map(|p| p[3]).collect();
+        assert_eq!(before, after, "alpha channel must be untouched by decontamination");
+    }
+}
