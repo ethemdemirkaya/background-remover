@@ -55,6 +55,14 @@ class DocumentStore {
     this.redoStack = [];
   }
 
+  /** Discard the current cutout but keep the loaded image — used by "Reset". */
+  discardMask() {
+    if (this.mask) this.history.push({ mask: this.mask, cutout: this.cutout, label: "discard" });
+    this.mask = null;
+    this.cutout = null;
+    this.redoStack = [];
+  }
+
   /** Smart Select pushes only a mask; no decontaminated cutout yet. */
   pushMask(mask: Mask, label: string) {
     this.snapshotCurrent(label);

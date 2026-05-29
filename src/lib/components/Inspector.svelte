@@ -249,9 +249,20 @@
 
   <div class="spacer"></div>
 
-  <footer class="undo">
-    <button type="button" class="btn ghost" disabled={!doc.canUndo} onclick={() => doc.undo()}>Undo</button>
-    <button type="button" class="btn ghost" disabled={!doc.canRedo} onclick={() => doc.redo()}>Redo</button>
+  <footer class="bottom-actions">
+    <div class="undo">
+      <button type="button" class="btn ghost" disabled={!doc.canUndo} onclick={() => doc.undo()}>Undo</button>
+      <button type="button" class="btn ghost" disabled={!doc.canRedo} onclick={() => doc.redo()}>Redo</button>
+    </div>
+    <button
+      type="button"
+      class="btn ghost discard"
+      disabled={!doc.mask}
+      onclick={() => doc.discardMask()}
+      title="Discard the current cutout and show the original image again"
+    >
+      Reset cutout
+    </button>
   </footer>
 </aside>
 
@@ -341,7 +352,9 @@
   }
 
   .spacer { flex: 1; }
+  .bottom-actions { display: flex; flex-direction: column; gap: var(--s2); }
   .undo { display: flex; gap: var(--s2); }
   .undo .btn { flex: 1; }
+  .discard { width: 100%; }
 </style>
 
