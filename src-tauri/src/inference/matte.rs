@@ -125,14 +125,13 @@ pub fn run_auto(source: &RgbaImage, model_path: &Path) -> AppResult<GrayImage> {
     ))
 }
 
-/// Sigmoid centered at 0.5 with slope k. Strong enough to remove the soft halo
-/// around the subject (background-bleed pixels with α ≈ 0.15 collapse to 0)
-/// without flattening hair / fur into a hard cutout.
-///
-/// Tuned by inspection — slope 12 produces sharp edges while preserving sub-
-/// pixel softness in the 0.3..0.7 band where real semi-transparent detail lives.
+/// Sigmoid centered at 0.5. RMBG-1.4 already produces clean alpha, so we use
+/// a gentler slope than we would for u2net family models — too aggressive a
+/// curve flattens hair into a hard cutout, which is exactly the artifact we
+/// want to avoid. Slope 6 trims faint background bleed (α < 0.1) without
+/// touching the 0.3..0.7 band where real translucent detail lives.
 fn sharpen_alpha(v: f32) -> f32 {
-    const SLOPE: f32 = 12.0;
+    const SLOPE: f32 = 6.0;
     let z = (v - 0.5) * SLOPE;
     1.0 / (1.0 + (-z).exp())
 }
