@@ -230,9 +230,20 @@
 
   {#if !doc.hasImage}
     <div class="empty" class:over={dragOver}>
-      <h2>Drop an image</h2>
+      <div class="icon" aria-hidden="true">
+        <svg viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="6" y="10" width="36" height="28" rx="3"/>
+          <circle cx="16" cy="20" r="3"/>
+          <path d="M8 34l10-10 7 7 6-6 9 9"/>
+        </svg>
+      </div>
+      <h2>Drop an image to begin</h2>
       <p class="muted">or <button type="button" class="link" onclick={pickFile}>browse files</button></p>
-      <p class="privacy faint">Images are processed entirely on your device.</p>
+      <p class="formats mono faint">png · jpg · webp · bmp · tiff</p>
+      <p class="privacy faint">
+        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+        Processed entirely on your device. No uploads.
+      </p>
     </div>
   {/if}
 
@@ -263,15 +274,27 @@
     gap: var(--s3);
   }
   .empty > * { pointer-events: auto; }
+  .empty .icon {
+    color: var(--text-faint);
+    margin-bottom: var(--s2);
+  }
   .empty h2 {
     font-weight: 500;
     font-size: var(--fs-20);
     letter-spacing: -0.01em;
     margin: 0;
   }
+  .empty .formats {
+    margin: var(--s1) 0 0 0;
+    font-size: var(--fs-12);
+    letter-spacing: 0.04em;
+  }
   .empty .privacy {
     margin-top: var(--s5);
     font-size: var(--fs-12);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s1);
   }
   .link {
     color: var(--accent);
