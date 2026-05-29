@@ -6,12 +6,32 @@
   import { ui } from "../stores/ui.svelte";
   import { ipc, type Background, type ExportFormat } from "../ipc";
   import { copyCutoutToClipboard } from "../actions/clipboard";
+  import { loadPrefs, savePrefs } from "../stores/persist";
 
-  let format = $state<ExportFormat>("png");
-  let colorHex = $state("#ffffff");
-  let blurRadius = $state(20);
+  const prefs = loadPrefs();
+
+  let format = $state<ExportFormat>(prefs.exportFormat ?? "png");
+  let colorHex = $state(prefs.colorHex ?? "#ffffff");
+  let blurRadius = $state(prefs.blurRadius ?? 20);
   let bgImagePath = $state<string | null>(null);
   let copied = $state(false);
+
+  // Restore the previously selected background kind (but never the image one —
+  // its absolute path probably doesn't exist anymore on a fresh launch).
+  if (prefs.background && prefs.background.kind !== "image") {
+    ui.background = prefs.background;
+  }
+
+  $effect(() => {
+    savePrefs({
+      background: ui.background.kind === "image"
+        ? { kind: "transparent" }
+        : ui.background,
+      exportFormat: format,
+      colorHex,
+      blurRadius,
+    });
+  });
 
   // Push local control changes into the store *only when the kind is already that kind*
   // and the actual value differs — avoids an infinite reactive loop (each assignment
