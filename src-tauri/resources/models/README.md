@@ -21,14 +21,16 @@ The script downloads the files below and drops them in this folder. They are
 
 | File | Phase | Purpose | License | Source |
 |------|-------|---------|---------|--------|
-| `u2netp.onnx` | 1 (Auto) | Lightweight matte (~4.7 MB) — fast on CPU | Apache-2.0 (U-2-Net) | [rembg releases](https://github.com/danielgatis/rembg/releases/tag/v0.0.0) |
+| `isnet-general-use.onnx` | 1 (Auto) | High-quality matte (~170 MB, 1024² input) — production default | Apache-2.0 (IS-Net) | [rembg releases](https://github.com/danielgatis/rembg/releases/tag/v0.0.0) |
+| `u2netp.onnx` (alt) | 1 (Auto, fast) | Lightweight matte (~4.7 MB, 320² input) — quick mode option | Apache-2.0 (U-2-Net) | [rembg releases](https://github.com/danielgatis/rembg/releases/tag/v0.0.0) |
 | `mobile-sam-encoder.onnx` | 2 (Smart) | Image embedding, runs once on load | Apache-2.0 | _planned_ |
 | `mobile-sam-decoder.onnx` | 2 (Smart) | Prompt-driven mask | Apache-2.0 | _planned_ |
 | `sam2-tiny.onnx` | 4 (Quality) | Optional higher-quality mode | _tbd_ | _planned_ |
 
-`u2netp` is the default matte model for v1. Swap it for the heavier `u2net.onnx`
-(176 MB) or `isnet-general.onnx` for cleaner edges; just change the filename in
-`commands.rs` (`MATTE_MODEL` constant).
+`isnet-general-use` is the production default — 1024² input gives dramatically
+sharper masks (less halo, cleaner hair) than u2netp at the cost of ~3× inference
+time. Swap to `u2netp.onnx` for a quick mode by changing the `MATTE_MODEL`
+constant in `commands.rs`.
 
 ## Why SAM is two files
 

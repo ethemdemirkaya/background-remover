@@ -8,7 +8,7 @@ dest="$root/src-tauri/resources/models"
 mkdir -p "$dest"
 
 declare -a models=(
-  "u2netp.onnx|https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx"
+  "isnet-general-use.onnx|https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx"
 )
 
 for entry in "${models[@]}"; do

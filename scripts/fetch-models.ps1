@@ -10,11 +10,13 @@ $root = Split-Path -Parent $PSScriptRoot
 $dest = Join-Path $root "src-tauri/resources/models"
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
 
+# Primary: IS-Net "general use" — much sharper masks than u2netp at the cost of
+# size (~170 MB) and ~3× inference time. This is what makes "Remove background"
+# look professional instead of "kind of OK".
 $models = @(
   @{
-    name = "u2netp.onnx"
-    url  = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx"
-    sha256 = "8e83ca70e441ab06c318d82300c84d6936c9bf2dfc7ac4c4f9c1e7e1d4f3a8b8"
+    name = "isnet-general-use.onnx"
+    url  = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx"
   }
 )
 
