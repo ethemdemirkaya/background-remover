@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Downloads the ONNX models the app needs (macOS / Linux).
+# Mirror of fetch-models.ps1. Run once after cloning.
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+dest="$root/src-tauri/resources/models"
+mkdir -p "$dest"
+
+declare -a models=(
+  "u2netp.onnx|https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx"
+)
+
+for entry in "${models[@]}"; do
+  name="${entry%%|*}"
+  url="${entry##*|}"
+  out="$dest/$name"
+  if [[ -f "$out" ]]; then
+    echo "[skip] $name already present"
+    continue
+  fi
+  echo "[fetch] $name ..."
+  curl -L --fail --progress-bar -o "$out" "$url"
+  size=$(stat -c%s "$out" 2>/dev/null || stat -f%z "$out")
+  printf "[ok]   %s (%.1f MB)\n" "$name" "$(echo "$size / 1048576" | bc -l)"
+done
+
+echo
+echo "Done. Models are in $dest"
