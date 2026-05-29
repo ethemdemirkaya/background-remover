@@ -8,8 +8,10 @@
   import { ipc } from "../ipc";
   import {
     drawCheckerboard,
-    drawImageFitted,
+    drawImage,
+    drawCutout,
     drawMaskOverlay,
+    computePlacement,
   } from "../canvas/render";
 
   let canvas: HTMLCanvasElement;
@@ -35,8 +37,18 @@
     drawCheckerboard(ctx, w, h);
 
     if (!img) return;
-    const placement = drawImageFitted(ctx, img, { zoom: ui.zoom, panX: ui.panX, panY: ui.panY }, w, h);
-    if (maskImg) drawMaskOverlay(ctx, maskImg, placement);
+    const placement = computePlacement(img, { zoom: ui.zoom, panX: ui.panX, panY: ui.panY }, w, h);
+
+    if (maskImg && ui.mode === "smart") {
+      // Smart Select is iterative — show the source and a tinted proposal on top.
+      drawImage(ctx, img, placement);
+      drawMaskOverlay(ctx, maskImg, placement);
+    } else if (maskImg) {
+      // Auto / Manual — show the real cutout so the checkerboard reads as "background removed".
+      drawCutout(ctx, img, maskImg, placement);
+    } else {
+      drawImage(ctx, img, placement);
+    }
   }
 
   // Re-paint on any state change the canvas cares about.

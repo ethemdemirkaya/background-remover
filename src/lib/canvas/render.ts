@@ -3,14 +3,17 @@
  *
  * The stage paints, in order:
  *   1. transparency checkerboard (signature motif — solid squares, never a gradient)
- *   2. the source image (fit-to-stage * user zoom, centered + panned)
- *   3. the mask as a tinted overlay
+ *   2. either:
+ *        - the source image (no mask yet), OR
+ *        - the *cutout*: source image with the mask used as alpha, so the
+ *          checkerboard shows through where the background was removed.
+ *      In Smart Select mode the cutout is suppressed and we draw the source +
+ *      a tinted mask overlay instead, since the user is iterating on a
+ *      proposal.
  *
- * The mask comes from Rust as a single-channel PNG. When the browser decodes it
- * to RGBA, all four channels equal the luminance (L) with alpha=255. We can't
- * just `source-in`-tint it — that would paint the *whole* canvas. So we
- * transpose L → A and write the accent RGB everywhere, producing a clean tinted
- * overlay only where the mask is non-zero.
+ * Mask transport: Rust returns a single-channel PNG. When the browser decodes
+ * it to RGBA, all four channels equal the luminance (L) with alpha=255. We
+ * have to transpose L → A before either compositing or tinting.
  */
 
 export const CHECKER_SIZE = 12;
@@ -37,8 +40,7 @@ export interface Placement {
   scale: number;
 }
 
-export function drawImageFitted(
-  ctx: CanvasRenderingContext2D,
+export function computePlacement(
   img: HTMLImageElement,
   view: { zoom: number; panX: number; panY: number },
   canvasW: number,
@@ -50,19 +52,86 @@ export function drawImageFitted(
   const drawH = img.naturalHeight * scale;
   const x = (canvasW - drawW) / 2 + view.panX;
   const y = (canvasH - drawH) / 2 + view.panY;
-  ctx.imageSmoothingEnabled = scale < 1;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(img, x, y, drawW, drawH);
   return { x, y, drawW, drawH, scale };
 }
 
+export function drawImage(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  placement: Placement,
+) {
+  ctx.save();
+  ctx.imageSmoothingEnabled = placement.scale < 1;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, placement.x, placement.y, placement.drawW, placement.drawH);
+  ctx.restore();
+}
+
+/**
+ * Render the *cutout*: source image with the mask used as alpha. Anywhere the
+ * mask is dark, the source becomes transparent so the checkerboard underneath
+ * shows through. This is what makes "Remove background" feel like it actually
+ * removed the background.
+ */
+export function drawCutout(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  maskBitmap: HTMLImageElement | ImageBitmap,
+  placement: Placement,
+) {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  if (w === 0 || h === 0) return;
+
+  const off = document.createElement("canvas");
+  off.width = w;
+  off.height = h;
+  const oc = off.getContext("2d");
+  if (!oc) return;
+
+  // 1. Source image at full resolution.
+  oc.drawImage(img, 0, 0, w, h);
+
+  // 2. Build an alpha-only stencil from the mask's luminance channel.
+  const stencil = document.createElement("canvas");
+  stencil.width = w;
+  stencil.height = h;
+  const sc = stencil.getContext("2d");
+  if (!sc) return;
+  sc.drawImage(maskBitmap as CanvasImageSource, 0, 0, w, h);
+  const data = sc.getImageData(0, 0, w, h);
+  const px = data.data;
+  for (let i = 0; i < px.length; i += 4) {
+    const l = px[i]; // R == G == B == L for an L8 PNG decoded to RGBA
+    px[i] = 255;
+    px[i + 1] = 255;
+    px[i + 2] = 255;
+    px[i + 3] = l;
+  }
+  sc.putImageData(data, 0, 0);
+
+  // 3. destination-in keeps source pixels only where stencil alpha is set.
+  oc.globalCompositeOperation = "destination-in";
+  oc.drawImage(stencil, 0, 0);
+
+  // 4. Draw the cutout at placement on the main canvas.
+  ctx.save();
+  ctx.imageSmoothingEnabled = placement.scale < 1;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(off, placement.x, placement.y, placement.drawW, placement.drawH);
+  ctx.restore();
+}
+
+/**
+ * Tinted selection overlay for Smart Select. Uses the accent fill where the
+ * mask is active; transparent elsewhere. Kept for Phase 2 — Auto mode uses
+ * drawCutout so the user sees the actual result.
+ */
 export function drawMaskOverlay(
   ctx: CanvasRenderingContext2D,
   maskBitmap: HTMLImageElement | ImageBitmap,
   placement: Placement,
 ) {
-  // 1. Decode mask into an offscreen at the *source-image* resolution so we don't
-  //    smear the L→A transpose across upscaled pixels.
   const srcW = "naturalWidth" in maskBitmap ? maskBitmap.naturalWidth : maskBitmap.width;
   const srcH = "naturalHeight" in maskBitmap ? maskBitmap.naturalHeight : maskBitmap.height;
   if (srcW === 0 || srcH === 0) return;
@@ -78,7 +147,6 @@ export function drawMaskOverlay(
   const data = oc.getImageData(0, 0, srcW, srcH);
   const px = data.data;
   for (let i = 0; i < px.length; i += 4) {
-    // L8 PNGs decode as R=G=B=L, A=255. Use L as alpha, accent as RGB.
     const a = px[i];
     px[i] = accent.r;
     px[i + 1] = accent.g;
@@ -87,7 +155,6 @@ export function drawMaskOverlay(
   }
   oc.putImageData(data, 0, 0);
 
-  // 2. Draw the tinted mask at the same scale/position as the image.
   ctx.save();
   ctx.imageSmoothingEnabled = placement.scale < 1;
   ctx.imageSmoothingQuality = "high";
@@ -118,7 +185,6 @@ function getCssVar(name: string): string {
 
 interface Rgba { r: number; g: number; b: number; a: number; }
 function parseAccent(): Rgba {
-  // Use --select-fill if it's rgba; otherwise fall back to --accent at 0.55 opacity.
   const fill = getCssVar("--select-fill");
   const m = fill.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/i);
   if (m) {
