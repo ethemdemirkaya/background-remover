@@ -6,7 +6,7 @@ use image::GenericImageView;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tauri::path::BaseDirectory;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
 
 const MATTE_MODEL: &str = "rmbg-1.4.onnx";
@@ -110,14 +110,27 @@ pub async fn auto_remove(
 ) -> AppResult<AutoResult> {
     let docs = state.documents.clone();
     let model = resource_path(&app, &format!("models/{MATTE_MODEL}"))?;
+    let app_inner = app.clone();
     tauri::async_runtime::spawn_blocking(move || -> AppResult<AutoResult> {
+        let emit = |phase: &str| {
+            let _ = app_inner.emit("matte:phase", phase);
+        };
+
         let doc = docs.get(&image_id).ok_or_else(|| AppError::UnknownImage(image_id.clone()))?;
+
+        emit("inference");
         let mask = inference::matte::run_auto(&doc.source, model.as_path() as &Path)?;
+
+        emit("decontaminate");
         let cutout = compose::build_cutout(&doc.source, &mask)?;
-        Ok(AutoResult {
+
+        emit("encode");
+        let result = AutoResult {
             mask: compose::encode_mask_png(&mask)?,
             cutout: compose::encode_rgba_png(&cutout)?,
-        })
+        };
+        emit("done");
+        Ok(result)
     })
     .await
     .map_err(|e| AppError::Msg(e.to_string()))?

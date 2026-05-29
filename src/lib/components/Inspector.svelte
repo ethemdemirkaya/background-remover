@@ -1,5 +1,7 @@
 ﻿<script lang="ts">
   import { save, open } from "@tauri-apps/plugin-dialog";
+  import { listen } from "@tauri-apps/api/event";
+  import { onMount } from "svelte";
   import { doc } from "../stores/document.svelte";
   import { ui } from "../stores/ui.svelte";
   import { ipc, type Background, type ExportFormat } from "../ipc";
@@ -25,10 +27,26 @@
     }
   });
 
+  const PHASE_LABEL: Record<string, string> = {
+    inference: "Detecting subject...",
+    decontaminate: "Cleaning edges...",
+    encode: "Finalizing...",
+    done: "Finalizing...",
+  };
+
+  onMount(() => {
+    // Phase events from Rust drive the busy label so the user sees what step
+    // they're waiting on rather than a generic "removing background".
+    const stop = listen<string>("matte:phase", (e) => {
+      if (ui.busy) ui.setBusy(PHASE_LABEL[e.payload] ?? "Removing background...");
+    });
+    return () => { stop.then((fn) => fn()); };
+  });
+
   async function runAuto() {
     if (!doc.imageId) return;
     ui.setError(null);
-    ui.setBusy("Removing background...");
+    ui.setBusy("Loading model...");
     try {
       const result = await ipc.autoRemove(doc.imageId);
       doc.pushAutoResult(result.mask, result.cutout, "auto");
