@@ -2,6 +2,8 @@ import type { Background } from "../ipc";
 import type { ExportFormat } from "../ipc";
 
 const KEY = "bg-remover/prefs/v1";
+const RECENTS_KEY = "bg-remover/recents/v1";
+const RECENTS_MAX = 8;
 
 interface Persisted {
   background?: Background;
@@ -33,4 +35,22 @@ export function savePrefs(p: Persisted) {
   } catch {
     // Storage full or disabled — silently ignore, prefs aren't critical.
   }
+}
+
+export function loadRecents(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((x): x is string => typeof x === "string").slice(0, RECENTS_MAX);
+  } catch {
+    return [];
+  }
+}
+
+export function pushRecent(path: string) {
+  const existing = loadRecents().filter((p) => p !== path);
+  const next = [path, ...existing].slice(0, RECENTS_MAX);
+  try { localStorage.setItem(RECENTS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
 }

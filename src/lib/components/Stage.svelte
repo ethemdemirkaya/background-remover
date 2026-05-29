@@ -8,6 +8,9 @@
   import { smart } from "../stores/smart.svelte";
   import { ipc } from "../ipc";
   import { screenToImage } from "../canvas/render";
+  import { loadRecents, pushRecent } from "../stores/persist";
+
+  let recents = $state<string[]>(loadRecents());
   import {
     drawCheckerboard,
     drawImage,
@@ -228,6 +231,8 @@
       const fileName = basename(path);
       doc.setImage(meta.image_id, meta.width, meta.height, fileUrl, fileName);
       ui.zoom = 1; ui.panX = 0; ui.panY = 0;
+      pushRecent(path);
+      recents = loadRecents();
     } catch (e) {
       ui.setError(String(e));
     } finally {
@@ -346,6 +351,22 @@
       <h2>Drop an image to begin</h2>
       <p class="muted">or <button type="button" class="link" onclick={pickFile}>browse files</button></p>
       <p class="formats mono faint">png · jpg · webp · bmp · tiff</p>
+
+      {#if recents.length > 0}
+        <div class="recents">
+          <p class="muted small recents-label">Recent</p>
+          <ul>
+            {#each recents.slice(0, 4) as path}
+              <li>
+                <button type="button" class="recent" title={path} onclick={() => loadFromPath(path)}>
+                  {basename(path)}
+                </button>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+
       <p class="privacy faint">
         <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
         Processed entirely on your device. No uploads.
@@ -402,6 +423,32 @@
     align-items: center;
     gap: var(--s1);
   }
+  .recents {
+    margin-top: var(--s4);
+    text-align: left;
+    width: 280px;
+    max-width: 100%;
+  }
+  .recents-label {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0 var(--s2) 0;
+    font-size: var(--fs-12);
+  }
+  .recents ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .recent {
+    width: 100%;
+    text-align: left;
+    padding: var(--s2) var(--s3);
+    color: var(--text);
+    font-size: var(--fs-13);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: background var(--dur) var(--ease);
+  }
+  .recent:hover { background: var(--bg-raised); }
   .link {
     color: var(--accent);
     text-decoration: none;
