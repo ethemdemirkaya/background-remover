@@ -28,8 +28,8 @@
     ui.setError(null);
     ui.setBusy("Removing background...");
     try {
-      const mask = await ipc.autoRemove(doc.imageId);
-      doc.pushMask(mask, "auto");
+      const result = await ipc.autoRemove(doc.imageId);
+      doc.pushAutoResult(result.mask, result.cutout, "auto");
     } catch (e) {
       ui.setError(String(e));
     } finally {

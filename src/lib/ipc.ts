@@ -26,13 +26,24 @@ export type ExportFormat = "png" | "webp";
  */
 export type Mask = Uint8Array;
 
+/** Full RGBA PNG of a decontaminated cutout — drawn directly to canvas. */
+export type CutoutPng = Uint8Array;
+
+export interface AutoResult {
+  mask: Mask;
+  cutout: CutoutPng;
+}
+
 export const ipc = {
   loadImage(path: string): Promise<ImageMeta> {
     return invoke<ImageMeta>("load_image", { path });
   },
 
-  autoRemove(imageId: ImageId): Promise<Mask> {
-    return invoke<number[]>("auto_remove", { imageId }).then((b) => new Uint8Array(b));
+  autoRemove(imageId: ImageId): Promise<AutoResult> {
+    return invoke<{ mask: number[]; cutout: number[] }>("auto_remove", { imageId }).then((r) => ({
+      mask: new Uint8Array(r.mask),
+      cutout: new Uint8Array(r.cutout),
+    }));
   },
 
   smartSelect(imageId: ImageId, prompts: Prompt[]): Promise<Mask> {

@@ -18,6 +18,7 @@
   let wrap: HTMLElement;
   let img: HTMLImageElement | null = null;
   let maskImg: HTMLImageElement | null = null;
+  let cutoutImg: HTMLImageElement | null = null;
   let dragOver = $state(false);
 
   function paint() {
@@ -39,12 +40,16 @@
     if (!img) return;
     const placement = computePlacement(img, { zoom: ui.zoom, panX: ui.panX, panY: ui.panY }, w, h);
 
-    if (maskImg && ui.mode === "smart") {
-      // Smart Select is iterative — show the source and a tinted proposal on top.
+    if (cutoutImg && ui.mode !== "smart") {
+      // Server-built cutout: foreground decontaminated by Rust, alpha already
+      // in the PNG. Just draw it — no compositing here, no CORS risk.
+      drawImage(ctx, cutoutImg, placement);
+    } else if (maskImg && ui.mode === "smart") {
+      // Smart Select is iterative — show source + tinted mask proposal.
       drawImage(ctx, img, placement);
       drawMaskOverlay(ctx, maskImg, placement);
     } else if (maskImg) {
-      // Auto / Manual — show the real cutout so the checkerboard reads as "background removed".
+      // Fallback: mask exists but no Rust cutout (older results, edge cases).
       drawCutout(ctx, img, maskImg, placement);
     } else {
       drawImage(ctx, img, placement);
@@ -55,11 +60,15 @@
   $effect(() => {
     void doc.sourceUrl;
     void doc.mask;
+    void doc.cutout;
     void ui.zoom; void ui.panX; void ui.panY;
     paint();
   });
 
-  // Decode source whenever its URL changes.
+  // Decode source whenever its URL changes. The source is only used for the
+  // "no mask yet" preview path now — cutout rendering goes through doc.cutout
+  // which is decontaminated server-side, so we no longer need crossOrigin
+  // tricks to read source pixels back into JS.
   $effect(() => {
     const url = doc.sourceUrl;
     if (!url) { img = null; paint(); return; }
@@ -83,6 +92,19 @@
     const url = URL.createObjectURL(blob);
     const el = new Image();
     el.onload = () => { maskImg = el; URL.revokeObjectURL(url); paint(); };
+    el.onerror = () => { URL.revokeObjectURL(url); };
+    el.src = url;
+  });
+
+  // Decode RGBA cutout PNG bytes when they change.
+  $effect(() => {
+    const c = doc.cutout;
+    if (!c) { cutoutImg = null; paint(); return; }
+    const buf = new Uint8Array(c).buffer;
+    const blob = new Blob([buf], { type: "image/png" });
+    const url = URL.createObjectURL(blob);
+    const el = new Image();
+    el.onload = () => { cutoutImg = el; URL.revokeObjectURL(url); paint(); };
     el.onerror = () => { URL.revokeObjectURL(url); };
     el.src = url;
   });

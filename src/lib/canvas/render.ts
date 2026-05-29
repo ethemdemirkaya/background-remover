@@ -68,10 +68,10 @@ export function drawImage(
 }
 
 /**
- * Render the *cutout*: source image with the mask used as alpha. Anywhere the
- * mask is dark, the source becomes transparent so the checkerboard underneath
- * shows through. This is what makes "Remove background" feel like it actually
- * removed the background.
+ * Mask-only cutout fallback. Used when we have a mask but no server-built
+ * RGBA cutout (Smart Select previews, edge cases). For the Auto/Manual path
+ * the Rust side already produces a decontaminated RGBA cutout that the Stage
+ * draws directly — no JS compositing needed.
  */
 export function drawCutout(
   ctx: CanvasRenderingContext2D,
@@ -89,32 +89,29 @@ export function drawCutout(
   const oc = off.getContext("2d");
   if (!oc) return;
 
-  // 1. Source image at full resolution.
   oc.drawImage(img, 0, 0, w, h);
 
-  // 2. Build an alpha-only stencil from the mask's luminance channel.
   const stencil = document.createElement("canvas");
   stencil.width = w;
   stencil.height = h;
   const sc = stencil.getContext("2d");
   if (!sc) return;
   sc.drawImage(maskBitmap as CanvasImageSource, 0, 0, w, h);
-  const data = sc.getImageData(0, 0, w, h);
-  const px = data.data;
-  for (let i = 0; i < px.length; i += 4) {
-    const l = px[i]; // R == G == B == L for an L8 PNG decoded to RGBA
-    px[i] = 255;
-    px[i + 1] = 255;
-    px[i + 2] = 255;
-    px[i + 3] = l;
+  try {
+    const data = sc.getImageData(0, 0, w, h);
+    const px = data.data;
+    for (let i = 0; i < px.length; i += 4) {
+      px[i + 3] = px[i]; // L → A
+      px[i] = 255; px[i + 1] = 255; px[i + 2] = 255;
+    }
+    sc.putImageData(data, 0, 0);
+  } catch {
+    // mask stencil came from a blob URL so this shouldn't taint, but be safe
   }
-  sc.putImageData(data, 0, 0);
 
-  // 3. destination-in keeps source pixels only where stencil alpha is set.
   oc.globalCompositeOperation = "destination-in";
   oc.drawImage(stencil, 0, 0);
 
-  // 4. Draw the cutout at placement on the main canvas.
   ctx.save();
   ctx.imageSmoothingEnabled = placement.scale < 1;
   ctx.imageSmoothingQuality = "high";
