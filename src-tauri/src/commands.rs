@@ -9,7 +9,7 @@ use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
-const MATTE_MODEL: &str = "u2netp.onnx";
+const MATTE_MODEL: &str = "isnet-general-use.onnx";
 
 /// Resolve a bundled resource path. In a release build this comes from the
 /// bundle; in `tauri dev` it falls back to `src-tauri/resources/<name>` relative

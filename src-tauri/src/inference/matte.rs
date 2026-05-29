@@ -6,14 +6,19 @@ use ort::value::Value;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
-/// Lazy global session — U-2-Net family models are stateless under inference,
-/// so a single shared session is fine and saves the ~150 ms load cost per call.
-/// Wrapped in a Mutex because ort sessions aren't Sync.
+/// Lazy global session — IS-Net inference is stateless, so a single shared
+/// session is fine and saves the ~300 ms load cost per call.
 static SESSION: OnceLock<Mutex<Session>> = OnceLock::new();
 
-const INPUT_SIZE: u32 = 320;
-const MEAN: [f32; 3] = [0.485, 0.456, 0.406];
-const STD: [f32; 3] = [0.229, 0.224, 0.225];
+/// IS-Net "general use" expects a 1024² square input. That's the whole point of
+/// switching off u2netp: 10× more pixels through the network, dramatically
+/// sharper mask edges, far less halo around hair and detail.
+const INPUT_SIZE: u32 = 1024;
+
+/// IS-Net normalization: divide by image max, then subtract 0.5. No ImageNet
+/// per-channel mean/std (that's u2net's recipe — different model, different
+/// preprocessing).
+const BIAS: f32 = 0.5;
 
 fn session(model_path: &Path) -> AppResult<&'static Mutex<Session>> {
     if let Some(s) = SESSION.get() {
@@ -30,15 +35,18 @@ fn session(model_path: &Path) -> AppResult<&'static Mutex<Session>> {
     Ok(SESSION.get().expect("set just now"))
 }
 
-/// Auto background removal via the bundled u2netp ONNX matte model.
+/// Auto background removal via the bundled IS-Net matte model.
 /// Returns a single-channel alpha matte at the original image's dimensions.
 ///
-/// Pipeline mirrors rembg's reference implementation:
-///   1. Resize source to 320² (Triangle)
-///   2. Per-channel ImageNet normalization
+/// Pipeline mirrors rembg's IS-Net session:
+///   1. Resize source to 1024² with Lanczos3 (preserves edge detail)
+///   2. Divide by per-image max, subtract 0.5 → roughly [-0.5, +0.5]
 ///   3. NCHW float32 input
-///   4. Min-max normalize the network output
-///   5. Resize the 320² mask back to source dims
+///   4. Min-max normalize the network output to [0, 1]
+///   5. Apply a sigmoid alpha-sharpening curve — pushes confident foreground
+///      to 1 and confident background to 0 while keeping the soft transition
+///      around hair and detail (this is what kills the halo)
+///   6. Lanczos3 resize the 1024² mask back to source dims
 pub fn run_auto(source: &RgbaImage, model_path: &Path) -> AppResult<GrayImage> {
     if !model_path.exists() {
         return Err(AppError::Msg(format!(
@@ -49,11 +57,10 @@ pub fn run_auto(source: &RgbaImage, model_path: &Path) -> AppResult<GrayImage> {
 
     let (orig_w, orig_h) = (source.width(), source.height());
 
-    let resized = image::imageops::resize(source, INPUT_SIZE, INPUT_SIZE, FilterType::Triangle);
+    let resized = image::imageops::resize(source, INPUT_SIZE, INPUT_SIZE, FilterType::Lanczos3);
     let size = INPUT_SIZE as usize;
     let mut input = Array4::<f32>::zeros((1, 3, size, size));
     let mut max_v: f32 = 1e-5;
-    // First pass: collect max so we can match rembg's "divide by max" pre-normalization.
     for px in resized.pixels() {
         for c in 0..3 {
             let v = px[c] as f32;
@@ -64,12 +71,11 @@ pub fn run_auto(source: &RgbaImage, model_path: &Path) -> AppResult<GrayImage> {
         for (x, px) in row.enumerate() {
             for c in 0..3 {
                 let v = (px[c] as f32) / max_v;
-                input[[0, c, y, x]] = (v - MEAN[c]) / STD[c];
+                input[[0, c, y, x]] = v - BIAS;
             }
         }
     }
 
-    // ort rc.12: feed via Value::from_array on an owned ndarray.
     let input_value = Value::from_array(input).map_err(ort_err)?;
 
     let mtx = session(model_path)?;
@@ -77,8 +83,9 @@ pub fn run_auto(source: &RgbaImage, model_path: &Path) -> AppResult<GrayImage> {
         .lock()
         .map_err(|e| AppError::Msg(format!("session lock poisoned: {e}")))?;
 
-    // Don't hardcode the input name — u2net family models typically use "input.1"
-    // but some exports use "input" or "img". Read it from the model metadata.
+    // Don't hardcode the input name — read it from the model metadata so we
+    // don't break the moment we swap a model whose export used a different
+    // convention.
     let input_name = sess
         .inputs()
         .first()
@@ -89,11 +96,11 @@ pub fn run_auto(source: &RgbaImage, model_path: &Path) -> AppResult<GrayImage> {
         .run(ort::inputs![input_name.as_str() => input_value])
         .map_err(ort_err)?;
 
-    // Output is (1, 1, 320, 320) f32. rc.12's try_extract_tensor returns (&Shape, &[f32]).
     let (_shape, out_slice) = outputs[0]
         .try_extract_tensor::<f32>()
         .map_err(ort_err)?;
 
+    // Min-max normalize to [0, 1].
     let (mut lo, mut hi) = (f32::INFINITY, f32::NEG_INFINITY);
     for &v in out_slice.iter() {
         if v < lo { lo = v; }
@@ -101,20 +108,33 @@ pub fn run_auto(source: &RgbaImage, model_path: &Path) -> AppResult<GrayImage> {
     }
     let range = (hi - lo).max(1e-5);
 
-    let mut mask_320 = GrayImage::new(INPUT_SIZE, INPUT_SIZE);
+    let mut mask_1024 = GrayImage::new(INPUT_SIZE, INPUT_SIZE);
     for (idx, &v) in out_slice.iter().enumerate() {
         let y = (idx / size) as u32;
         let x = (idx % size) as u32;
         let n = ((v - lo) / range).clamp(0.0, 1.0);
-        mask_320.put_pixel(x, y, Luma([(n * 255.0).round() as u8]));
+        let sharp = sharpen_alpha(n);
+        mask_1024.put_pixel(x, y, Luma([(sharp * 255.0).round() as u8]));
     }
 
     Ok(image::imageops::resize(
-        &mask_320,
+        &mask_1024,
         orig_w,
         orig_h,
-        FilterType::Triangle,
+        FilterType::Lanczos3,
     ))
+}
+
+/// Sigmoid centered at 0.5 with slope k. Strong enough to remove the soft halo
+/// around the subject (background-bleed pixels with α ≈ 0.15 collapse to 0)
+/// without flattening hair / fur into a hard cutout.
+///
+/// Tuned by inspection — slope 12 produces sharp edges while preserving sub-
+/// pixel softness in the 0.3..0.7 band where real semi-transparent detail lives.
+fn sharpen_alpha(v: f32) -> f32 {
+    const SLOPE: f32 = 12.0;
+    let z = (v - 0.5) * SLOPE;
+    1.0 / (1.0 + (-z).exp())
 }
 
 fn ort_err<C>(e: ort::Error<C>) -> AppError {
