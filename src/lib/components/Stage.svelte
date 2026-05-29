@@ -5,7 +5,9 @@
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { doc } from "../stores/document.svelte";
   import { ui } from "../stores/ui.svelte";
+  import { smart } from "../stores/smart.svelte";
   import { ipc } from "../ipc";
+  import { screenToImage } from "../canvas/render";
   import {
     drawCheckerboard,
     drawImage,
@@ -72,11 +74,38 @@
       // Smart Select is iterative — show source + tinted mask proposal.
       drawImage(ctx, img, placement);
       drawMaskOverlay(ctx, maskImg, placement);
+    } else if (ui.mode === "smart") {
+      drawImage(ctx, img, placement);
     } else if (maskImg) {
       // Fallback: mask exists but no Rust cutout (older results, edge cases).
       drawCutout(ctx, img, maskImg, placement);
     } else {
       drawImage(ctx, img, placement);
+    }
+
+    // Smart Select prompt markers float above whatever's drawn below.
+    if (ui.mode === "smart" && smart.count > 0) {
+      drawPromptMarkers(ctx, placement);
+    }
+  }
+
+  function drawPromptMarkers(ctx: CanvasRenderingContext2D, placement: { x: number; y: number; drawW: number; drawH: number }) {
+    if (!img) return;
+    const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#E8533F";
+    const danger = getComputedStyle(document.documentElement).getPropertyValue("--danger").trim() || "#D8493B";
+    for (const p of smart.prompts) {
+      if (p.kind !== "point") continue;
+      const sx = placement.x + (p.x / img.naturalWidth) * placement.drawW;
+      const sy = placement.y + (p.y / img.naturalHeight) * placement.drawH;
+      ctx.save();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#FFFFFF";
+      ctx.fillStyle = p.label === "remove" ? danger : accent;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
     }
   }
 
@@ -87,6 +116,8 @@
     void doc.cutout;
     void ui.zoom; void ui.panX; void ui.panY;
     void ui.background;
+    void ui.mode;
+    void smart.prompts;
     paint();
   });
 
@@ -246,13 +277,38 @@
 
   let panning = false;
   let panStart = { x: 0, y: 0, panX: 0, panY: 0 };
+
   function onPointerDown(e: PointerEvent) {
-    // Space-drag pan: shift OR middle button. Plain click is reserved for Smart Select (Phase 2).
-    if (!e.shiftKey && e.button !== 1) return;
+    // Middle button always pans.
+    if (e.button === 1) { startPan(e); return; }
+    // Shift + left = pan everywhere.
+    if (e.shiftKey && e.button === 0) { startPan(e); return; }
+    // In Smart Select mode, a plain left-click drops a point prompt.
+    if (ui.mode === "smart" && e.button === 0 && img) {
+      dropPoint(e);
+      return;
+    }
+  }
+
+  function startPan(e: PointerEvent) {
     panning = true;
     canvas.setPointerCapture(e.pointerId);
     panStart = { x: e.clientX, y: e.clientY, panX: ui.panX, panY: ui.panY };
   }
+
+  function dropPoint(e: PointerEvent) {
+    if (!img) return;
+    const rect = canvas.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    const placement = computePlacement(img, { zoom: ui.zoom, panX: ui.panX, panY: ui.panY }, rect.width, rect.height);
+    // Clicks outside the image bounds are ignored — no prompt placed.
+    if (sx < placement.x || sy < placement.y || sx > placement.x + placement.drawW || sy > placement.y + placement.drawH) return;
+    const { x, y } = screenToImage(sx, sy, placement, { width: img.naturalWidth, height: img.naturalHeight });
+    smart.add({ kind: "point", x, y, label: e.altKey ? "remove" : "add" });
+    paint();
+  }
+
   function onPointerMove(e: PointerEvent) {
     if (!panning) return;
     ui.panX = panStart.panX + (e.clientX - panStart.x);

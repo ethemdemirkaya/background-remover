@@ -7,6 +7,7 @@
   import { ipc, type Background, type ExportFormat } from "../ipc";
   import { copyCutoutToClipboard } from "../actions/clipboard";
   import { loadPrefs, savePrefs } from "../stores/persist";
+  import { smart } from "../stores/smart.svelte";
 
   const prefs = loadPrefs();
 
@@ -146,8 +147,12 @@
         Remove background
       </button>
     {:else if ui.mode === "smart"}
-      <p class="muted small">Click on the subject to select. Shift-click adds, alt-click removes.</p>
-      <p class="faint small">Coming in Phase 2.</p>
+      <p class="muted small">Click on the subject to add it; alt-click to remove. Box prompts coming soon.</p>
+      <div class="row">
+        <span class="mono faint small">{smart.count} {smart.count === 1 ? "point" : "points"}</span>
+        <button type="button" class="btn ghost" disabled={smart.count === 0} onclick={() => smart.clear()}>Clear</button>
+      </div>
+      <p class="faint small">MobileSAM model lands in v0.2. Until then the points are captured and visualized so the workflow is real — the mask just isn't computed yet.</p>
     {:else}
       <p class="muted small">Refine the mask with a brush or lasso.</p>
       <p class="faint small">Coming in Phase 3.</p>
