@@ -76,8 +76,17 @@ pub fn run_auto(source: &RgbaImage, model_path: &Path) -> AppResult<GrayImage> {
     let mut sess = mtx
         .lock()
         .map_err(|e| AppError::Msg(format!("session lock poisoned: {e}")))?;
+
+    // Don't hardcode the input name — u2net family models typically use "input.1"
+    // but some exports use "input" or "img". Read it from the model metadata.
+    let input_name = sess
+        .inputs()
+        .first()
+        .map(|i| i.name().to_string())
+        .ok_or_else(|| AppError::Msg("model exposes no inputs".into()))?;
+
     let outputs = sess
-        .run(ort::inputs!["input.1" => input_value])
+        .run(ort::inputs![input_name.as_str() => input_value])
         .map_err(ort_err)?;
 
     // Output is (1, 1, 320, 320) f32. rc.12's try_extract_tensor returns (&Shape, &[f32]).
