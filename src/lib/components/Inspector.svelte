@@ -177,10 +177,13 @@
     </div>
 
     {#if ui.background.kind === "color"}
-      <label class="field">
-        <span class="muted small">Hex</span>
-        <input type="text" class="mono" bind:value={colorHex} maxlength="7" />
-      </label>
+      <div class="field">
+        <span class="muted small">Color</span>
+        <div class="row">
+          <input type="color" class="color-pick" bind:value={colorHex} aria-label="Color picker" />
+          <input type="text" class="mono grow" bind:value={colorHex} maxlength="7" pattern="#?[0-9A-Fa-f]{'{6}'}" />
+        </div>
+      </div>
     {:else if ui.background.kind === "blur"}
       <label class="field">
         <span class="muted small">Radius <span class="mono faint">{blurRadius}px</span></span>
@@ -279,6 +282,18 @@
   }
   input[type="text"]:focus, select:focus { border-color: var(--accent); outline: 0; }
   input[type="range"] { accent-color: var(--accent); }
+
+  .color-pick {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: transparent;
+    cursor: pointer;
+  }
+  .color-pick::-webkit-color-swatch-wrapper { padding: 2px; }
+  .color-pick::-webkit-color-swatch { border: 0; border-radius: 4px; }
 
   .swatches { display: flex; gap: var(--s2); }
   .swatch {
