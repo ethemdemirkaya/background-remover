@@ -10,13 +10,15 @@ $root = Split-Path -Parent $PSScriptRoot
 $dest = Join-Path $root "src-tauri/resources/models"
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
 
-# Primary: IS-Net "general use" — much sharper masks than u2netp at the cost of
-# size (~170 MB) and ~3× inference time. This is what makes "Remove background"
-# look professional instead of "kind of OK".
+# Primary: BriaAI RMBG-1.4 — best-in-class open-weight matte model for general
+# background removal. Cleanly distinguishes foreground from cluttered scenes
+# (the failure mode that broke IS-Net on the beach photo). Non-commercial RAIL
+# license — fine for personal/portfolio use; swap to isnet-general-use for
+# fully permissive licensing.
 $models = @(
   @{
-    name = "isnet-general-use.onnx"
-    url  = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx"
+    name = "rmbg-1.4.onnx"
+    url  = "https://huggingface.co/briaai/RMBG-1.4/resolve/main/onnx/model.onnx"
   }
 )
 

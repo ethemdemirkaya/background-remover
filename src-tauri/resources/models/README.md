@@ -21,16 +21,23 @@ The script downloads the files below and drops them in this folder. They are
 
 | File | Phase | Purpose | License | Source |
 |------|-------|---------|---------|--------|
-| `isnet-general-use.onnx` | 1 (Auto) | High-quality matte (~170 MB, 1024² input) — production default | Apache-2.0 (IS-Net) | [rembg releases](https://github.com/danielgatis/rembg/releases/tag/v0.0.0) |
-| `u2netp.onnx` (alt) | 1 (Auto, fast) | Lightweight matte (~4.7 MB, 320² input) — quick mode option | Apache-2.0 (U-2-Net) | [rembg releases](https://github.com/danielgatis/rembg/releases/tag/v0.0.0) |
+| `rmbg-1.4.onnx` | 1 (Auto) | Best-in-class matte (~170 MB, 1024² input) — production default | RAIL-M non-commercial (BriaAI) | [huggingface.co/briaai/RMBG-1.4](https://huggingface.co/briaai/RMBG-1.4) |
+| `isnet-general-use.onnx` (alt) | 1 (Auto) | High-quality permissive alternative | Apache-2.0 (IS-Net) | [rembg releases](https://github.com/danielgatis/rembg/releases/tag/v0.0.0) |
+| `u2netp.onnx` (alt) | 1 (Auto, fast) | Lightweight matte (~4.7 MB, 320² input) | Apache-2.0 (U-2-Net) | [rembg releases](https://github.com/danielgatis/rembg/releases/tag/v0.0.0) |
 | `mobile-sam-encoder.onnx` | 2 (Smart) | Image embedding, runs once on load | Apache-2.0 | _planned_ |
 | `mobile-sam-decoder.onnx` | 2 (Smart) | Prompt-driven mask | Apache-2.0 | _planned_ |
 | `sam2-tiny.onnx` | 4 (Quality) | Optional higher-quality mode | _tbd_ | _planned_ |
 
-`isnet-general-use` is the production default — 1024² input gives dramatically
-sharper masks (less halo, cleaner hair) than u2netp at the cost of ~3× inference
-time. Swap to `u2netp.onnx` for a quick mode by changing the `MATTE_MODEL`
-constant in `commands.rs`.
+`rmbg-1.4` is the production default — BriaAI's RMBG-1.4 is widely regarded as
+the strongest open-weight model for general background removal, with much
+better discrimination on cluttered scenes than IS-Net (which kept beach pixels
+classed as foreground on portrait test shots). Output is paired with a
+foreground color decontamination pass in the renderer to strip background
+color bleed from soft edges.
+
+Switch the `MATTE_MODEL` constant in `commands.rs` to fall back to
+`isnet-general-use.onnx` (fully permissive Apache-2.0) or `u2netp.onnx`
+(fast/small) if RMBG's non-commercial license is a blocker.
 
 ## Why SAM is two files
 
