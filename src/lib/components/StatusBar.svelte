@@ -7,6 +7,13 @@
     onShowAbout?: () => void;
   }
   let { onShowShortcuts, onShowAbout }: Props = $props();
+
+  // Errors sometimes wrap a multi-line backtrace; the bar only has one line.
+  // Take the first useful sentence, hover for the rest.
+  function shortenError(s: string): string {
+    const first = s.split(/\r?\n/)[0]?.trim() ?? s;
+    return first.length > 140 ? first.slice(0, 137) + "..." : first;
+  }
 </script>
 
 <footer class="bar" role="status">
@@ -22,7 +29,10 @@
 
   <div class="middle">
     {#if ui.error}
-      <span class="error">{ui.error}</span>
+      <button type="button" class="error" title={ui.error} onclick={() => ui.setError(null)}>
+        <span class="error-text">{shortenError(ui.error)}</span>
+        <span class="error-dismiss" aria-hidden="true">×</span>
+      </button>
     {:else if ui.busy}
       <span class="busy">
         <span class="spinner" aria-hidden="true"></span>
@@ -68,7 +78,24 @@
   }
   .lock:hover { background: var(--bg-hover); color: var(--text); }
   .middle { flex: 1; display: flex; justify-content: center; }
-  .error { color: var(--danger); }
+  .error {
+    color: var(--danger);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s2);
+    padding: 0 var(--s2);
+    border-radius: var(--r-sm);
+    max-width: 60ch;
+    border: 1px solid transparent;
+    transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  }
+  .error:hover { background: rgba(216, 73, 59, 0.08); border-color: var(--danger); }
+  .error-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .error-dismiss { font-size: 14px; opacity: 0.7; }
   .notice { color: var(--text); }
   .busy { display: inline-flex; align-items: center; gap: var(--s2); }
   .spinner {
