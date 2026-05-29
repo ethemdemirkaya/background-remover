@@ -34,7 +34,16 @@ export interface AutoResult {
   cutout: CutoutPng;
 }
 
+export interface SetupStatus {
+  matte_ready: boolean;
+  matte_path: string;
+}
+
 export const ipc = {
+  checkSetup(): Promise<SetupStatus> {
+    return invoke<SetupStatus>("check_setup");
+  },
+
   loadImage(path: string): Promise<ImageMeta> {
     return invoke<ImageMeta>("load_image", { path });
   },

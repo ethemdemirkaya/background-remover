@@ -5,6 +5,7 @@
   import StatusBar from "./lib/components/StatusBar.svelte";
   import ShortcutsOverlay from "./lib/components/ShortcutsOverlay.svelte";
   import AboutOverlay from "./lib/components/AboutOverlay.svelte";
+  import SetupBanner from "./lib/components/SetupBanner.svelte";
   import { doc } from "./lib/stores/document.svelte";
   import { ui } from "./lib/stores/ui.svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -45,24 +46,33 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="app">
-  <Toolbar />
-  <Stage />
-  <Inspector />
+<div class="root">
+  <SetupBanner />
+  <div class="app">
+    <Toolbar />
+    <Stage />
+    <Inspector />
+  </div>
+  <StatusBar
+    onShowShortcuts={() => (shortcutsOpen = true)}
+    onShowAbout={() => (aboutOpen = true)}
+  />
 </div>
-<StatusBar
-  onShowShortcuts={() => (shortcutsOpen = true)}
-  onShowAbout={() => (aboutOpen = true)}
-/>
 
 <ShortcutsOverlay open={shortcutsOpen} onClose={() => (shortcutsOpen = false)} />
 <AboutOverlay open={aboutOpen} onClose={() => (aboutOpen = false)} />
 
 <style>
+  .root {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
   .app {
+    flex: 1;
     display: grid;
     grid-template-columns: 56px 1fr 320px;
-    height: calc(100% - 28px);
+    min-height: 0;
     background: var(--bg-base);
   }
 </style>

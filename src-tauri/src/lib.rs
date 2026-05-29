@@ -18,6 +18,7 @@ pub fn run() {
             commands::smart_select,
             commands::export_image,
             commands::clear_image,
+            commands::check_setup,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -183,3 +183,35 @@ pub async fn clear_image(state: State<'_, AppState>, image_id: String) -> AppRes
     state.documents.remove(&image_id);
     Ok(())
 }
+
+#[derive(Serialize)]
+pub struct SetupStatus {
+    /// Whether the matte ONNX model is on disk and ready to use.
+    pub matte_ready: bool,
+    /// Fully-resolved path the app would load the matte model from. Useful so
+    /// the UI can show 'expected at <path>' if it's missing.
+    pub matte_path: String,
+}
+
+#[tauri::command]
+pub async fn check_setup(app: AppHandle) -> AppResult<SetupStatus> {
+    let model_rel = format!("models/{MATTE_MODEL}");
+
+    // Same lookup order as resource_path, but we surface the expected location
+    // when the file isn't there so the UI can show "drop the file at <path>".
+    let expected = match app
+        .path()
+        .resolve(format!("resources/{model_rel}"), BaseDirectory::Resource)
+    {
+        Ok(p) => p,
+        Err(_) => std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.ancestors().nth(3).map(|src_tauri| src_tauri.join("resources").join(&model_rel)))
+            .unwrap_or_else(|| PathBuf::from(&model_rel)),
+    };
+
+    Ok(SetupStatus {
+        matte_ready: expected.exists(),
+        matte_path: expected.to_string_lossy().to_string(),
+    })
+}
