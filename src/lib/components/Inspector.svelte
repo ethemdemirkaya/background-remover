@@ -89,8 +89,12 @@
   async function doExport() {
     if (!doc.imageId || !doc.mask) return;
     const ext = format === "webp" ? "webp" : "png";
+    // Default name = "<source stem>-cutout.<ext>" so the user doesn't have to
+    // retype it just to get a sensible disambiguated filename next to the original.
+    const stem = (doc.fileName ?? "cutout").replace(/\.[^.]+$/, "");
+    const defaultPath = `${stem}-cutout.${ext}`;
     const path = await save({
-      defaultPath: `cutout.${ext}`,
+      defaultPath,
       filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
     });
     if (!path) return;
