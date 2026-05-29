@@ -122,8 +122,9 @@
         else if (event.payload.type === "leave") dragOver = false;
         else if (event.payload.type === "drop") {
           dragOver = false;
-          const first = event.payload.paths?.[0];
-          if (first) loadFromPath(first);
+          const paths = event.payload.paths ?? [];
+          if (paths.length === 0) return;
+          handleDrop(paths);
         }
       })
       .then((fn) => { unlisten = fn; })
@@ -156,6 +157,26 @@
   function basename(p: string): string {
     const m = p.replace(/\\/g, "/").match(/([^/]+)$/);
     return m ? m[1] : p;
+  }
+
+  // A path is "probably a folder" if it has no recognized image extension.
+  // We can't statSync from the webview, so we go by extension; the worst
+  // outcome is that an oddly-named image triggers the batch notice.
+  const IMG_EXT = /\.(png|jpe?g|webp|bmp|tiff?|gif)$/i;
+
+  function handleDrop(paths: string[]) {
+    const images = paths.filter((p) => IMG_EXT.test(p));
+    const folders = paths.filter((p) => !IMG_EXT.test(p));
+
+    if (images.length === 0 && folders.length > 0) {
+      ui.flash(`Folder detected — batch mode is coming in v0.2. Drop a single image to use Auto for now.`);
+      return;
+    }
+
+    if (images.length > 1) {
+      ui.flash(`${images.length} images detected — batch mode is coming in v0.2. Loading the first one.`);
+    }
+    loadFromPath(images[0]);
   }
 
   async function pickFile() {

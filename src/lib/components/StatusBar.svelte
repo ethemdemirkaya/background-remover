@@ -29,6 +29,8 @@
         {ui.busyLabel}
         {#if ui.progress !== null}<span class="mono faint">{Math.round(ui.progress * 100)}%</span>{/if}
       </span>
+    {:else if ui.notice}
+      <span class="notice">{ui.notice}</span>
     {:else if doc.hasImage}
       <span class="muted small mono">{doc.width} × {doc.height}</span>
     {/if}
@@ -67,6 +69,7 @@
   .lock:hover { background: var(--bg-hover); color: var(--text); }
   .middle { flex: 1; display: flex; justify-content: center; }
   .error { color: var(--danger); }
+  .notice { color: var(--text); }
   .busy { display: inline-flex; align-items: center; gap: var(--s2); }
   .spinner {
     width: 10px; height: 10px;

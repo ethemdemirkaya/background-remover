@@ -7,6 +7,9 @@ class UIStore {
   busyLabel = $state<string>("");
   progress = $state<number | null>(null);
   error = $state<string | null>(null);
+  /** Non-fatal info text — surfaced briefly in the status bar. */
+  notice = $state<string | null>(null);
+  private noticeTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Currently selected export background. */
   background = $state<Background>({ kind: "transparent" });
@@ -34,6 +37,13 @@ class UIStore {
 
   setError(msg: string | null) {
     this.error = msg;
+  }
+
+  /** Show an info message for a few seconds, then clear it. */
+  flash(msg: string, ms = 4000) {
+    this.notice = msg;
+    if (this.noticeTimer) clearTimeout(this.noticeTimer);
+    this.noticeTimer = setTimeout(() => { this.notice = null; }, ms);
   }
 }
 
