@@ -21,6 +21,10 @@
   let cutoutImg: HTMLImageElement | null = null;
   let dragOver = $state(false);
 
+  // Cross-fade fraction during the "mask just landed" beat (CLAUDE.md §8.6).
+  // 0 = show source only, 1 = show cutout only. We sit at 1 between transitions.
+  let cutoutFade = 1;
+
   function paint() {
     if (!canvas || !wrap) return;
     const dpr = window.devicePixelRatio || 1;
@@ -43,7 +47,16 @@
     if (cutoutImg && ui.mode !== "smart") {
       // Server-built cutout: foreground decontaminated by Rust, alpha already
       // in the PNG. Just draw it — no compositing here, no CORS risk.
-      drawImage(ctx, cutoutImg, placement);
+      if (cutoutFade < 1) {
+        // The delightful moment — source underneath, cutout fading in on top.
+        drawImage(ctx, img, placement);
+        ctx.save();
+        ctx.globalAlpha = cutoutFade;
+        drawImage(ctx, cutoutImg, placement);
+        ctx.restore();
+      } else {
+        drawImage(ctx, cutoutImg, placement);
+      }
     } else if (maskImg && ui.mode === "smart") {
       // Smart Select is iterative — show source + tinted mask proposal.
       drawImage(ctx, img, placement);
@@ -96,18 +109,43 @@
     el.src = url;
   });
 
-  // Decode RGBA cutout PNG bytes when they change.
+  // Decode RGBA cutout PNG bytes when they change. Once the bitmap is ready,
+  // kick off the 220ms fade-in that lifts the subject off the background.
   $effect(() => {
     const c = doc.cutout;
-    if (!c) { cutoutImg = null; paint(); return; }
+    if (!c) { cutoutImg = null; cutoutFade = 1; paint(); return; }
     const buf = new Uint8Array(c).buffer;
     const blob = new Blob([buf], { type: "image/png" });
     const url = URL.createObjectURL(blob);
     const el = new Image();
-    el.onload = () => { cutoutImg = el; URL.revokeObjectURL(url); paint(); };
+    el.onload = () => {
+      cutoutImg = el;
+      URL.revokeObjectURL(url);
+      animateCutoutIn();
+    };
     el.onerror = () => { URL.revokeObjectURL(url); };
     el.src = url;
   });
+
+  function animateCutoutIn() {
+    if (typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      cutoutFade = 1;
+      paint();
+      return;
+    }
+    const duration = 220;
+    const start = performance.now();
+    cutoutFade = 0;
+    const tick = (now: number) => {
+      const p = Math.min((now - start) / duration, 1);
+      cutoutFade = easeOutCubic(p);
+      paint();
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  function easeOutCubic(t: number) { const u = 1 - t; return 1 - u * u * u; }
 
   onMount(() => {
     const ro = new ResizeObserver(() => paint());
