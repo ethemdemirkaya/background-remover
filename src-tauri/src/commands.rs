@@ -9,7 +9,7 @@ use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
-const MATTE_MODEL: &str = "isnet-general-use.onnx";
+const MATTE_MODEL: &str = "rmbg-1.4.onnx";
 
 /// Resolve a bundled resource path. In a release build this comes from the
 /// bundle; in `tauri dev` it falls back to `src-tauri/resources/<name>` relative
@@ -36,6 +36,18 @@ pub struct ImageMeta {
     pub image_id: String,
     pub width: u32,
     pub height: u32,
+}
+
+#[derive(Serialize)]
+pub struct AutoResult {
+    /// L8 single-channel mask PNG — used by the export pipeline when the user
+    /// picks a non-transparent background.
+    pub mask: Vec<u8>,
+    /// RGBA PNG of the *displayed* cutout: source RGB clipped by the mask and
+    /// then run through foreground color decontamination. The frontend draws
+    /// this directly, so what the user sees on the canvas is exactly the
+    /// pixels that get exported on a transparent background.
+    pub cutout: Vec<u8>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -95,13 +107,17 @@ pub async fn auto_remove(
     app: AppHandle,
     state: State<'_, AppState>,
     image_id: String,
-) -> AppResult<Vec<u8>> {
+) -> AppResult<AutoResult> {
     let docs = state.documents.clone();
     let model = resource_path(&app, &format!("models/{MATTE_MODEL}"))?;
-    tauri::async_runtime::spawn_blocking(move || -> AppResult<Vec<u8>> {
+    tauri::async_runtime::spawn_blocking(move || -> AppResult<AutoResult> {
         let doc = docs.get(&image_id).ok_or_else(|| AppError::UnknownImage(image_id.clone()))?;
         let mask = inference::matte::run_auto(&doc.source, model.as_path() as &Path)?;
-        compose::encode_mask_png(&mask)
+        let cutout = compose::build_cutout(&doc.source, &mask)?;
+        Ok(AutoResult {
+            mask: compose::encode_mask_png(&mask)?,
+            cutout: compose::encode_rgba_png(&cutout)?,
+        })
     })
     .await
     .map_err(|e| AppError::Msg(e.to_string()))?
