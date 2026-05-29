@@ -4,15 +4,21 @@
 
   interface Props {
     onShowShortcuts?: () => void;
+    onShowAbout?: () => void;
   }
-  let { onShowShortcuts }: Props = $props();
+  let { onShowShortcuts, onShowAbout }: Props = $props();
 </script>
 
 <footer class="bar" role="status">
-  <span class="lock mono" title="No telemetry, no uploads. The app cannot reach the network for image data.">
+  <button
+    type="button"
+    class="lock mono"
+    title="About — no telemetry, no uploads. Click for details."
+    onclick={() => onShowAbout?.()}
+  >
     <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
     on-device
-  </span>
+  </button>
 
   <div class="middle">
     {#if ui.error}
@@ -49,7 +55,16 @@
     font-size: var(--fs-12);
     color: var(--text-muted);
   }
-  .lock { display: inline-flex; align-items: center; gap: var(--s1); color: var(--text-faint); }
+  .lock {
+    display: inline-flex; align-items: center; gap: var(--s1);
+    color: var(--text-faint);
+    padding: 0 var(--s2);
+    height: 22px;
+    border-radius: var(--r-sm);
+    font-size: var(--fs-12);
+    transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+  }
+  .lock:hover { background: var(--bg-hover); color: var(--text); }
   .middle { flex: 1; display: flex; justify-content: center; }
   .error { color: var(--danger); }
   .busy { display: inline-flex; align-items: center; gap: var(--s2); }

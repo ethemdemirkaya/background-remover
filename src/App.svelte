@@ -4,12 +4,14 @@
   import Inspector from "./lib/components/Inspector.svelte";
   import StatusBar from "./lib/components/StatusBar.svelte";
   import ShortcutsOverlay from "./lib/components/ShortcutsOverlay.svelte";
+  import AboutOverlay from "./lib/components/AboutOverlay.svelte";
   import { doc } from "./lib/stores/document.svelte";
   import { ui } from "./lib/stores/ui.svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { copyCutoutToClipboard } from "./lib/actions/clipboard";
 
   let shortcutsOpen = $state(false);
+  let aboutOpen = $state(false);
 
   // Keep the OS window title in sync with the active file. Useful when several
   // copies of the app are open or when alt-tabbing — the title bar tells you
@@ -24,7 +26,11 @@
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     const mod = e.ctrlKey || e.metaKey;
 
-    if (e.key === "Escape" && shortcutsOpen) { shortcutsOpen = false; return; }
+    if (e.key === "Escape" && (shortcutsOpen || aboutOpen)) {
+      shortcutsOpen = false;
+      aboutOpen = false;
+      return;
+    }
     if (!mod && e.key === "?") { e.preventDefault(); shortcutsOpen = !shortcutsOpen; return; }
 
     if (mod && e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); doc.undo(); }
@@ -44,9 +50,13 @@
   <Stage />
   <Inspector />
 </div>
-<StatusBar onShowShortcuts={() => (shortcutsOpen = true)} />
+<StatusBar
+  onShowShortcuts={() => (shortcutsOpen = true)}
+  onShowAbout={() => (aboutOpen = true)}
+/>
 
 <ShortcutsOverlay open={shortcutsOpen} onClose={() => (shortcutsOpen = false)} />
+<AboutOverlay open={aboutOpen} onClose={() => (aboutOpen = false)} />
 
 <style>
   .app {
