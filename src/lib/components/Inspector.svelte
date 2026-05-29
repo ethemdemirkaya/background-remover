@@ -16,6 +16,21 @@
   let blurRadius = $state(prefs.blurRadius ?? 20);
   let bgImagePath = $state<string | null>(null);
   let copied = $state(false);
+  let cutoutUrl = $state<string>("");
+
+  // Mirror the cutout PNG bytes as a blob URL so an <img> in the export preview
+  // can render it without poking at the canvas.
+  $effect(() => {
+    if (!doc.cutout) {
+      if (cutoutUrl) { URL.revokeObjectURL(cutoutUrl); cutoutUrl = ""; }
+      return;
+    }
+    const buf = new Uint8Array(doc.cutout).buffer;
+    const blob = new Blob([buf], { type: "image/png" });
+    const url = URL.createObjectURL(blob);
+    if (cutoutUrl) URL.revokeObjectURL(cutoutUrl);
+    cutoutUrl = url;
+  });
 
   // Restore the previously selected background kind (but never the image one —
   // its absolute path probably doesn't exist anymore on a fresh launch).
@@ -227,6 +242,11 @@
 
   <section class="panel">
     <header><h3>Export</h3></header>
+    {#if doc.cutout}
+      <div class="preview" aria-label="Export preview">
+        <img src={cutoutUrl} alt="" />
+      </div>
+    {/if}
     <div class="row">
       <label class="field grow">
         <span class="muted small">Format</span>
@@ -356,5 +376,28 @@
   .undo { display: flex; gap: var(--s2); }
   .undo .btn { flex: 1; }
   .discard { width: 100%; }
+
+  .preview {
+    width: 100%;
+    height: 100px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background-color: var(--checker-a);
+    background-image:
+      linear-gradient(45deg, var(--checker-b) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--checker-b) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--checker-b) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--checker-b) 75%);
+    background-size: 10px 10px;
+    background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
 </style>
 
